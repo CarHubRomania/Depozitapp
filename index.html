@@ -147,9 +147,8 @@
     // =========================================================================
     // CONFIGURARE: Pune URL-ul Web App Apps Script și Cheia Gemini
     // =========================================================================
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykjhFxWYRslmgE1mydMc3w1WteIFier3njh5pae_DuvSvg45znZK0skE-mxcNDYqCd/exec"; 
-    const GEMINI_API_KEY = localStorage.getItem("gemini_key") || prompt("Introdu cheia Gemini API o singură dată:");
-if (GEMINI_API_KEY) localStorage.setItem("gemini_key", GEMINI_API_KEY);
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykjhFxWYRslmgE1mydMc3w1WteIFier3njh5pae_DuvSvg45znZK0skE-mxcNDYqCd/exec";
+    let GEMINI_API_KEY = localStorage.getItem("gemini_key") || "";
 
     // Stare aplicație
     let currentUser = JSON.parse(localStorage.getItem("app_user") || "null");
@@ -224,7 +223,14 @@ if (GEMINI_API_KEY) localStorage.setItem("gemini_key", GEMINI_API_KEY);
         if (data.status === "success" && data.user) {
           currentUser = data.user;
           localStorage.setItem("app_user", JSON.stringify(currentUser));
+          
+          if (data.apiKey) {
+            GEMINI_API_KEY = data.apiKey;
+            localStorage.setItem("gemini_key", GEMINI_API_KEY);
+          }
+          
           updateAuthState();
+        }
         } else {
           errEl.innerText = data.message || "Date incorecte";
           errEl.classList.remove("hidden");
