@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Depozit - Picking & Packing cu Gemini AI</title>
+  <title>Depozit - Picking & Packing Scanner</title>
   <meta name="theme-color" content="#0f172a">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -16,19 +16,23 @@
     }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 min-h-screen pb-16 flex flex-col items-center">
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-16 flex flex-col items-center font-sans">
 
+  <!-- Header Mobil Sticky -->
   <header class="w-full bg-slate-900 text-white p-4 shadow-md flex justify-between items-center sticky top-0 z-50">
     <div>
-      <h1 class="font-bold text-lg leading-tight">Depozit Scanner AI</h1>
+      <h1 class="font-bold text-base leading-tight tracking-tight">Depozit Scanner AI</h1>
       <p id="operator-badge" class="text-xs text-slate-400">Neautentificat</p>
     </div>
-    <button id="btn-switch-user" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded border border-slate-700">Schimbă Gestionar</button>
+    <div class="flex items-center gap-2">
+      <a id="btn-admin-dashboard" href="https://docs.google.com/spreadsheets" target="_blank" class="hidden text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-2.5 py-1.5 rounded shadow">📊 Dashboard</a>
+      <button id="btn-switch-user" class="hidden text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded border border-slate-700">Ieșire</button>
+    </div>
   </header>
 
   <main class="w-full max-w-md p-4 space-y-4">
 
-    <!-- Modal Scanare Barcode Produs -->
+    <!-- Modal Scanare Barcode EAN Produs -->
     <div id="scanner-modal" class="hidden bg-slate-900 text-white rounded-xl p-3 shadow-2xl border border-slate-700">
       <div class="flex justify-between items-center mb-2">
         <span class="text-xs font-bold text-blue-400 uppercase tracking-wide">Scanează EAN Produs</span>
@@ -38,20 +42,37 @@
       <p class="text-center text-xs text-slate-400 mt-2">Îndreaptă camera spre codul de bare de pe produs</p>
     </div>
 
-    <!-- Pas 0: Identificare Gestionar -->
+    <!-- Pas 0: Login Securizat Depozit -->
     <div id="step-auth" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-      <h2 class="font-bold text-base text-slate-900">Cine pregătește comanda?</h2>
-      <input type="text" id="input-operator" placeholder="Ex: Robert" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium">
-      <button id="btn-save-operator" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg text-sm shadow">Începe Lucrul</button>
+      <div class="text-center space-y-1">
+        <h2 class="font-bold text-lg text-slate-900">Autentificare Depozit</h2>
+        <p class="text-xs text-slate-500">Introdu contul tău pentru a prelua comenzi</p>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs font-semibold text-slate-600 block mb-1">Utilizator</label>
+          <input type="text" id="login-username" placeholder="Ex: alexandru, robert.op sau paul" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600 block mb-1">Parolă</label>
+          <input type="password" id="login-password" placeholder="••••••••" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium">
+        </div>
+      </div>
+
+      <button id="btn-do-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg text-sm shadow">
+        Intră în Cont
+      </button>
+      <p id="login-error" class="hidden text-xs text-red-600 text-center font-medium"></p>
     </div>
 
-    <!-- Pas 1: Factură -->
+    <!-- Pas 1: Factură & Preluare Comandă -->
     <div id="step-invoice" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
       <div class="flex items-center space-x-2">
         <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center">1</span>
         <h2 class="font-bold text-base text-slate-900">Fotografiază Factura</h2>
       </div>
-      <p class="text-xs text-slate-500">Gemini AI va extrage comanda, numele clientului și produsele.</p>
+      <p class="text-xs text-slate-500">Gemini AI extrage instant comanda, clientul și lista completă de articole.</p>
       
       <input type="file" id="invoice-camera-input" accept="image/*" capture="environment" class="hidden">
       
@@ -61,12 +82,12 @@
 
       <div id="ai-loader" class="hidden p-4 bg-blue-50 rounded-lg text-center space-y-2">
         <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-        <p class="text-xs text-blue-700 font-semibold">Gemini AI procesează datele...</p>
+        <p class="text-xs text-blue-700 font-semibold">Gemini AI analizează documentul...</p>
       </div>
 
       <div class="relative flex py-1 items-center">
         <div class="flex-grow border-t border-slate-200"></div>
-        <span class="flex-shrink mx-2 text-xs text-slate-400">sau introdu manual nr. comandă</span>
+        <span class="flex-shrink mx-2 text-xs text-slate-400">sau introdu manual comanda</span>
         <div class="flex-grow border-t border-slate-200"></div>
       </div>
 
@@ -76,7 +97,7 @@
       </div>
     </div>
 
-    <!-- Pas 2: Checklist & Picking -->
+    <!-- Pas 2: Checklist Picking & Scanare EAN -->
     <div id="step-picking" class="hidden space-y-4">
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-start">
         <div>
@@ -84,28 +105,28 @@
           <p id="display-order-id" class="text-base font-bold text-slate-900 leading-tight"></p>
           <p id="display-customer" class="text-xs text-blue-600 font-medium mt-0.5"></p>
         </div>
-        <button id="btn-scan-product" class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1 shadow">
-          📷 Scanează EAN
+        <button id="btn-scan-product" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1 shadow">
+          📷 Scan EAN
         </button>
       </div>
 
       <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex gap-2">
-        <input type="text" id="input-add-item" placeholder="Adaugă articol..." class="flex-1 text-xs p-2 border rounded-lg outline-none">
+        <input type="text" id="input-add-item" placeholder="Adaugă articol manual..." class="flex-1 text-xs p-2 border rounded-lg outline-none">
         <button id="btn-add-item" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">+ Adaugă</button>
       </div>
 
       <div class="space-y-1">
         <div class="flex justify-between text-xs text-slate-400 px-2 font-medium">
-          <span>Apasă pe rând pentru bifare manuală:</span>
+          <span>Apasă pe rând sau scanează codul de bare:</span>
           <span id="progress-indicator">0 / 0</span>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100" id="items-list"></div>
       </div>
 
-      <!-- Pas 3: Poză Colet & Finalizare -->
+      <!-- Pas 3: Poză Colet & Salvare Finală -->
       <div id="step-photo-complete" class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
         <h3 class="text-xs font-bold uppercase text-slate-500">Fotografie Dovadă Colet</h3>
-        <p class="text-xs text-slate-400">Fă poza pachetului pregătit înainte de expediere.</p>
+        <p class="text-xs text-slate-400">Fotografiază coletul pregătit înainte de expediere.</p>
         
         <input type="file" id="camera-photo-input" accept="image/*" capture="environment" class="hidden">
         
@@ -123,49 +144,124 @@
   </main>
 
   <script>
-    // PUNE AICI LINKUL TAU WEB APP (/exec):
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykjhFxWYRslmgE1mydMc3w1WteIFier3njh5pae_DuvSvg45znZK0skE-mxcNDYqCd/exec";
+    // =========================================================================
+    // CONFIGURARE: Pune URL-ul Web App Apps Script și Cheia Gemini
+    // =========================================================================
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykjhFxWYRslmgE1mydMc3w1WteIFier3njh5pae_DuvSvg45znZK0skE-mxcNDYqCd/exec"; 
+    const GEMINI_API_KEY = "AQ.Ab8RN6Jr0AV5sKNKxKlVKWWJCw2vX3gESi2gFlPIO0N4Xk1TsQ";
 
-    let currentOperator = localStorage.getItem("operator_name") || "";
+    // Stare aplicație
+    let currentUser = JSON.parse(localStorage.getItem("app_user") || "null");
+    let productsDB = JSON.parse(localStorage.getItem("products_db") || "{}");
     let html5QrCode = null;
     let orderStartTime = null;
     let packagePhotoBase64 = null;
 
     let currentOrder = { orderId: "", customerName: "", customerType: "B2C", items: [] };
 
+    // Elemente UI
     const authStep = document.getElementById("step-auth");
     const invoiceStep = document.getElementById("step-invoice");
     const pickingStep = document.getElementById("step-picking");
     const operatorBadge = document.getElementById("operator-badge");
     const scannerModal = document.getElementById("scanner-modal");
+    const btnDashboard = document.getElementById("btn-admin-dashboard");
+    const btnLogout = document.getElementById("btn-switch-user");
 
-    function updateOperatorState() {
-      if (currentOperator) {
-        operatorBadge.innerText = `Gestionar: ${currentOperator}`;
+    // =========================================================================
+    // 1. SISTEM DE AUTENTIFICARE & DREPTURI
+    // =========================================================================
+    function updateAuthState() {
+      if (currentUser) {
+        operatorBadge.innerHTML = `<span class="font-bold text-white">${currentUser.name}</span> <span class="text-xs text-blue-300">(${currentUser.role.toUpperCase()})</span>`;
         authStep.classList.add("hidden");
         invoiceStep.classList.remove("hidden");
+        btnLogout.classList.remove("hidden");
+
+        // Acces Dashboard pentru administratori
+        if (currentUser.role === "admin") {
+          btnDashboard.classList.remove("hidden");
+        } else {
+          btnDashboard.classList.add("hidden");
+        }
+
+        // Sincronizare catalog EAN în fundal
+        syncProductsDatabase();
       } else {
         operatorBadge.innerText = "Neautentificat";
         authStep.classList.remove("hidden");
         invoiceStep.classList.add("hidden");
         pickingStep.classList.add("hidden");
+        btnDashboard.classList.add("hidden");
+        btnLogout.classList.add("hidden");
       }
     }
 
-    document.getElementById("btn-save-operator").addEventListener("click", () => {
-      const name = document.getElementById("input-operator").value.trim();
-      if (!name) return alert("Introdu numele!");
-      currentOperator = name;
-      localStorage.setItem("operator_name", name);
-      updateOperatorState();
+    document.getElementById("btn-do-login").addEventListener("click", async () => {
+      const u = document.getElementById("login-username").value.trim();
+      const p = document.getElementById("login-password").value.trim();
+      const errEl = document.getElementById("login-error");
+      const btn = document.getElementById("btn-do-login");
+
+      if (!u || !p) {
+        errEl.innerText = "Completează utilizatorul și parola!";
+        errEl.classList.remove("hidden");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = "Verificare cont...";
+      errEl.classList.add("hidden");
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "login", username: u, password: p })
+        });
+        const data = await res.json();
+
+        if (data.status === "success" && data.user) {
+          currentUser = data.user;
+          localStorage.setItem("app_user", JSON.stringify(currentUser));
+          updateAuthState();
+        } else {
+          errEl.innerText = data.message || "Date incorecte";
+          errEl.classList.remove("hidden");
+        }
+      } catch (err) {
+        errEl.innerText = "Eroare conexiune: " + err.message;
+        errEl.classList.remove("hidden");
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Intră în Cont";
+      }
     });
 
-    document.getElementById("btn-switch-user").addEventListener("click", () => {
-      localStorage.removeItem("operator_name");
-      currentOperator = "";
-      updateOperatorState();
+    btnLogout.addEventListener("click", () => {
+      localStorage.removeItem("app_user");
+      currentUser = null;
+      updateAuthState();
     });
 
+    async function syncProductsDatabase() {
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "get_products" })
+        });
+        const data = await res.json();
+        if (data.status === "success" && data.products) {
+          productsDB = data.products;
+          localStorage.setItem("products_db", JSON.stringify(productsDB));
+        }
+      } catch (e) {
+        console.log("Catalog EAN încărcat din cache-ul local.");
+      }
+    }
+
+    // =========================================================================
+    // 2. PARSARE RAPIDĂ FACTURĂ (DIRECT GEMINI VISION API)
+    // =========================================================================
     const invoiceCameraInput = document.getElementById("invoice-camera-input");
     const aiLoader = document.getElementById("ai-loader");
 
@@ -176,44 +272,80 @@
       if (!file) return;
 
       aiLoader.classList.remove("hidden");
-      const base64Img = await resizeImageToBase64(file, 900);
+      
+      // Optimizare la 800px și 0.55 calitate: fișierul scade la doar ~50KB
+      const base64DataUrl = await resizeImageToBase64(file, 800);
+      const pureBase64 = base64DataUrl.split(",")[1];
+
+      const prompt = "Factura comerciala Romania. Extrage:\n" +
+                     "1. Numar comanda/factura (orderId)\n" +
+                     "2. Nume client/companie (customerName)\n" +
+                     "3. 'B2B' daca are SRL/SA/CIF, altfel 'B2C' (customerType)\n" +
+                     "4. Produsele din tabel (nume complet, qty)\n" +
+                     "Ignora: transport, curier, total, TVA, CUI.\n" +
+                     "Raspunde EXCLUSIV JSON:\n" +
+                     "{\"orderId\":\"1000102194\",\"customerName\":\"Ion Popescu\",\"customerType\":\"B2C\",\"items\":[{\"name\":\"Produs\",\"qty\":1}]}";
+
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+      const requestBody = {
+        contents: [{
+          parts: [
+            { text: prompt },
+            {
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: pureBase64
+              }
+            }
+          ]
+        }],
+        generationConfig: {
+          response_mime_type: "application/json",
+          max_output_tokens: 800,
+          temperature: 0.1,
+          thinking_config: {
+            thinking_budget: 0 // Răspuns instant fără timp de deliberare
+          }
+        }
+      };
 
       try {
-        const response = await fetch(SCRIPT_URL, {
+        const response = await fetch(geminiUrl, {
           method: "POST",
-          body: JSON.stringify({
-            action: "parse_invoice",
-            image: base64Img
-          })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody)
         });
 
-        const result = await response.json();
+        const resJson = await response.json();
+        if (resJson.error) throw new Error(resJson.error.message);
 
-        if (result.status === "success" && result.data) {
-          orderStartTime = new Date().toISOString();
-          currentOrder.orderId = result.data.orderId || "CMD-NOUA";
-          currentOrder.customerName = result.data.customerName || "Client Necunoscut";
-          currentOrder.customerType = result.data.customerType || "B2C";
-          currentOrder.items = (result.data.items || []).map((it, idx) => ({
-            id: idx + 1,
-            name: it.name,
-            qty: it.qty || 1,
-            ean: "",
-            checked: false
-          }));
+        const rawText = resJson.candidates[0].content.parts[0].text;
+        const cleanText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+        const data = JSON.parse(cleanText);
 
-          aiLoader.classList.add("hidden");
-          initChecklistUI();
-        } else {
-          throw new Error(result.message || "Eroare la parsare");
-        }
+        orderStartTime = new Date().toISOString();
+        currentOrder.orderId = data.orderId || "CMD-NOUA";
+        currentOrder.customerName = data.customerName || "Client Necunoscut";
+        currentOrder.customerType = data.customerType || "B2C";
+        currentOrder.items = (data.items || []).map((it, idx) => ({
+          id: idx + 1,
+          name: it.name,
+          qty: it.qty || 1,
+          ean: "",
+          checked: false
+        }));
+
+        aiLoader.classList.add("hidden");
+        initChecklistUI();
+
       } catch (err) {
         aiLoader.classList.add("hidden");
         alert("Eroare la procesarea facturii: " + err.message);
       }
     });
 
-    function resizeImageToBase64(file, maxWidth = 900) {
+    function resizeImageToBase64(file, maxWidth = 800) {
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
@@ -223,7 +355,7 @@
           canvas.height = img.height * scale;
           const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL("image/jpeg", 0.65));
+          resolve(canvas.toDataURL("image/jpeg", 0.55));
         };
         img.src = URL.createObjectURL(file);
       });
@@ -249,6 +381,9 @@
       renderChecklist();
     }
 
+    // =========================================================================
+    // 3. LOGICĂ CHECKLIST & SCANARE EAN
+    // =========================================================================
     document.getElementById("btn-add-item").addEventListener("click", () => {
       const input = document.getElementById("input-add-item");
       const name = input.value.trim();
@@ -328,7 +463,21 @@
     document.getElementById("btn-scan-product").addEventListener("click", startScanner);
 
     function onProductBarcodeScanned(barcode) {
-      let targetItem = currentOrder.items.find(i => !i.checked);
+      // Verificăm dacă codul EAN există în nomenclatorul sincronizat
+      let matchedName = "";
+      if (productsDB[barcode]) {
+        matchedName = productsDB[barcode].name.toLowerCase();
+      }
+
+      // Căutăm produsul în lista curentă a comenzii
+      let targetItem = null;
+      if (matchedName) {
+        targetItem = currentOrder.items.find(i => !i.checked && (i.name.toLowerCase().includes(matchedName) || matchedName.includes(i.name.toLowerCase())));
+      }
+      if (!targetItem) {
+        targetItem = currentOrder.items.find(i => !i.checked);
+      }
+
       if (targetItem) {
         targetItem.ean = barcode;
         targetItem.checked = true;
@@ -341,25 +490,24 @@
       }
     }
 
+    // =========================================================================
+    // 4. DOVADĂ POZĂ COLET & FINALIZARE COMANDĂ
+    // =========================================================================
     const photoInput = document.getElementById("camera-photo-input");
     const photoBtn = document.getElementById("btn-capture-photo");
     const photoPreview = document.getElementById("photo-preview");
 
     photoBtn.addEventListener("click", () => photoInput.click());
 
-    photoInput.addEventListener("change", (e) => {
+    photoInput.addEventListener("change", async (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        packagePhotoBase64 = event.target.result;
-        photoPreview.src = packagePhotoBase64;
-        photoPreview.classList.remove("hidden");
-        photoBtn.innerText = "🔄 Înlocuiește poza";
-        checkFinishEligibility();
-      };
-      reader.readAsDataURL(file);
+      packagePhotoBase64 = await resizeImageToBase64(file, 900);
+      photoPreview.src = packagePhotoBase64;
+      photoPreview.classList.remove("hidden");
+      photoBtn.innerText = "🔄 Înlocuiește poza";
+      checkFinishEligibility();
     });
 
     function checkFinishEligibility() {
@@ -389,7 +537,7 @@
         orderId: currentOrder.orderId,
         customerName: currentOrder.customerName,
         customerType: currentOrder.customerType,
-        operator: currentOperator,
+        operator: currentUser ? currentUser.name : "Operator Necunoscut",
         startedAt: orderStartTime,
         completedAt: new Date().toISOString(),
         items: currentOrder.items,
@@ -416,7 +564,8 @@
       }
     });
 
-    updateOperatorState();
+    // Inițializare stare la pornire
+    updateAuthState();
   </script>
 </body>
 </html>
