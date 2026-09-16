@@ -60,7 +60,7 @@
         </div>
       </div>
 
-      <button id="btn-do-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg text-sm shadow">
+      <button id="btn-do-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg text-sm shadow transition-colors">
         Intră în Cont
       </button>
       <p id="login-error" class="hidden text-xs text-red-600 text-center font-medium"></p>
@@ -72,7 +72,7 @@
         <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center">1</span>
         <h2 class="font-bold text-base text-slate-900">Fotografiază Factura</h2>
       </div>
-      <p class="text-xs text-slate-500">Gemini AI extrage instant comanda, clientul și lista completă de articole.</p>
+      <p class="text-xs text-slate-500">Gemini AI extrage instant comanda, clientul și lista de articole.</p>
       
       <input type="file" id="invoice-camera-input" accept="image/*" capture="environment" class="hidden">
       
@@ -145,9 +145,9 @@
 
   <script>
     // =========================================================================
-    // CONFIGURARE: Pune URL-ul Web App Apps Script și Cheia Gemini
+    // CONFIGURARE: Pune URL-ul Web App Apps Script
     // =========================================================================
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykjhFxWYRslmgE1mydMc3w1WteIFier3njh5pae_DuvSvg45znZK0skE-mxcNDYqCd/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykjhFxWYRslmgE1mydMc3w1WteIFier3njh5pae_DuvSvg45znZK0skE-mxcNDYqCd/exec"; 
     let GEMINI_API_KEY = localStorage.getItem("gemini_key") || "";
 
     // Stare aplicație
@@ -178,14 +178,12 @@
         invoiceStep.classList.remove("hidden");
         btnLogout.classList.remove("hidden");
 
-        // Acces Dashboard pentru administratori
         if (currentUser.role === "admin") {
           btnDashboard.classList.remove("hidden");
         } else {
           btnDashboard.classList.add("hidden");
         }
 
-        // Sincronizare catalog EAN în fundal
         syncProductsDatabase();
       } else {
         operatorBadge.innerText = "Neautentificat";
@@ -197,11 +195,11 @@
       }
     }
 
-    document.getElementById("btn-do-login").addEventListener("click", async () => {
+    const btnDoLogin = document.getElementById("btn-do-login");
+    btnDoLogin.addEventListener("click", async () => {
       const u = document.getElementById("login-username").value.trim();
       const p = document.getElementById("login-password").value.trim();
       const errEl = document.getElementById("login-error");
-      const btn = document.getElementById("btn-do-login");
 
       if (!u || !p) {
         errEl.innerText = "Completează utilizatorul și parola!";
@@ -209,8 +207,8 @@
         return;
       }
 
-      btn.disabled = true;
-      btn.innerText = "Verificare cont...";
+      btnDoLogin.disabled = true;
+      btnDoLogin.innerText = "Verificare cont...";
       errEl.classList.add("hidden");
 
       try {
@@ -230,7 +228,6 @@
           }
           
           updateAuthState();
-        }
         } else {
           errEl.innerText = data.message || "Date incorecte";
           errEl.classList.remove("hidden");
@@ -239,8 +236,8 @@
         errEl.innerText = "Eroare conexiune: " + err.message;
         errEl.classList.remove("hidden");
       } finally {
-        btn.disabled = false;
-        btn.innerText = "Intră în Cont";
+        btnDoLogin.disabled = false;
+        btnDoLogin.innerText = "Intră în Cont";
       }
     });
 
@@ -267,7 +264,7 @@
     }
 
     // =========================================================================
-    // 2. PARSARE RAPIDĂ FACTURĂ (DIRECT GEMINI VISION API)
+    // 2. PARSARE FACTURĂ (DIRECT GEMINI VISION API)
     // =========================================================================
     const invoiceCameraInput = document.getElementById("invoice-camera-input");
     const aiLoader = document.getElementById("ai-loader");
@@ -280,7 +277,6 @@
 
       aiLoader.classList.remove("hidden");
       
-      // Optimizare la 800px și 0.55 calitate: fișierul scade la doar ~50KB
       const base64DataUrl = await resizeImageToBase64(file, 800);
       const pureBase64 = base64DataUrl.split(",")[1];
 
@@ -293,7 +289,8 @@
                      "Raspunde EXCLUSIV JSON:\n" +
                      "{\"orderId\":\"1000102194\",\"customerName\":\"Ion Popescu\",\"customerType\":\"B2C\",\"items\":[{\"name\":\"Produs\",\"qty\":1}]}";
 
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const currentKey = GEMINI_API_KEY || localStorage.getItem("gemini_key");
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`;
 
       const requestBody = {
         contents: [{
@@ -312,7 +309,7 @@
           max_output_tokens: 800,
           temperature: 0.1,
           thinking_config: {
-            thinking_budget: 0 // Răspuns instant fără timp de deliberare
+            thinking_budget: 0
           }
         }
       };
@@ -470,13 +467,11 @@
     document.getElementById("btn-scan-product").addEventListener("click", startScanner);
 
     function onProductBarcodeScanned(barcode) {
-      // Verificăm dacă codul EAN există în nomenclatorul sincronizat
       let matchedName = "";
       if (productsDB[barcode]) {
         matchedName = productsDB[barcode].name.toLowerCase();
       }
 
-      // Căutăm produsul în lista curentă a comenzii
       let targetItem = null;
       if (matchedName) {
         targetItem = currentOrder.items.find(i => !i.checked && (i.name.toLowerCase().includes(matchedName) || matchedName.includes(i.name.toLowerCase())));
@@ -571,7 +566,7 @@
       }
     });
 
-    // Inițializare stare la pornire
+    // Pornire aplicație
     updateAuthState();
   </script>
 </body>
