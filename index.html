@@ -72,7 +72,7 @@
         <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center">1</span>
         <h2 class="font-bold text-base text-slate-900">Fotografiază Factura</h2>
       </div>
-      <p class="text-xs text-slate-500">Gemini AI extrage instant comanda, clientul și lista de articole.</p>
+      <p class="text-xs text-slate-500">Gemini AI extrage comanda, clientul și produsele automat.</p>
       
       <input type="file" id="invoice-camera-input" accept="image/*" capture="environment" class="hidden">
       
@@ -144,11 +144,8 @@
   </main>
 
   <script>
-    // =========================================================================
-    // CONFIGURARE: Pune URL-ul Web App Apps Script
-    // =========================================================================
+    // Linkul Apps Script configurat direct
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykjhFxWYRslmgE1mydMc3w1WteIFier3njh5pae_DuvSvg45znZK0skE-mxcNDYqCd/exec"; 
-    let GEMINI_API_KEY = localStorage.getItem("gemini_key") || "";
 
     // Stare aplicație
     let currentUser = JSON.parse(localStorage.getItem("app_user") || "null");
@@ -169,7 +166,7 @@
     const btnLogout = document.getElementById("btn-switch-user");
 
     // =========================================================================
-    // 1. SISTEM DE AUTENTIFICARE & DREPTURI
+    // 1. SISTEM DE AUTENTIFICARE
     // =========================================================================
     function updateAuthState() {
       if (currentUser) {
@@ -221,12 +218,6 @@
         if (data.status === "success" && data.user) {
           currentUser = data.user;
           localStorage.setItem("app_user", JSON.stringify(currentUser));
-          
-          if (data.apiKey) {
-            GEMINI_API_KEY = data.apiKey;
-            localStorage.setItem("gemini_key", GEMINI_API_KEY);
-          }
-          
           updateAuthState();
         } else {
           errEl.innerText = data.message || "Date incorecte";
@@ -259,12 +250,12 @@
           localStorage.setItem("products_db", JSON.stringify(productsDB));
         }
       } catch (e) {
-        console.log("Catalog EAN încărcat din cache-ul local.");
+        console.log("Catalog EAN din cache.");
       }
     }
 
     // =========================================================================
-    // 2. PARSARE FACTURĂ (DIRECT GEMINI VISION API)
+    // 2. PARSARE FACTURĂ PRIN BACKEND (FĂRĂ BLOCARE GOOGLE)
     // =========================================================================
     const invoiceCameraInput = document.getElementById("invoice-camera-input");
     const aiLoader = document.getElementById("ai-loader");
@@ -276,58 +267,23 @@
       if (!file) return;
 
       aiLoader.classList.remove("hidden");
-      
-      const base64DataUrl = await resizeImageToBase64(file, 800);
-      const pureBase64 = base64DataUrl.split(",")[1];
-
-      const prompt = "Factura comerciala Romania. Extrage:\n" +
-                     "1. Numar comanda/factura (orderId)\n" +
-                     "2. Nume client/companie (customerName)\n" +
-                     "3. 'B2B' daca are SRL/SA/CIF, altfel 'B2C' (customerType)\n" +
-                     "4. Produsele din tabel (nume complet, qty)\n" +
-                     "Ignora: transport, curier, total, TVA, CUI.\n" +
-                     "Raspunde EXCLUSIV JSON:\n" +
-                     "{\"orderId\":\"1000102194\",\"customerName\":\"Ion Popescu\",\"customerType\":\"B2C\",\"items\":[{\"name\":\"Produs\",\"qty\":1}]}";
-
-      const currentKey = GEMINI_API_KEY || localStorage.getItem("gemini_key");
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`;
-
-      const requestBody = {
-        contents: [{
-          parts: [
-            { text: prompt },
-            {
-              inline_data: {
-                mime_type: "image/jpeg",
-                data: pureBase64
-              }
-            }
-          ]
-        }],
-        generationConfig: {
-          response_mime_type: "application/json",
-          max_output_tokens: 800,
-          temperature: 0.1,
-          thinking_config: {
-            thinking_budget: 0
-          }
-        }
-      };
+      const base64DataUrl = await resizeImageToBase64(file, 850);
 
       try {
-        const response = await fetch(geminiUrl, {
+        const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify({
+            action: "parse_invoice",
+            image: base64DataUrl
+          })
         });
 
         const resJson = await response.json();
-        if (resJson.error) throw new Error(resJson.error.message);
+        if (resJson.status !== "success" || !resJson.data) {
+          throw new Error(resJson.message || "Eroare la procesarea facturii");
+        }
 
-        const rawText = resJson.candidates[0].content.parts[0].text;
-        const cleanText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-        const data = JSON.parse(cleanText);
-
+        const data = resJson.data;
         orderStartTime = new Date().toISOString();
         currentOrder.orderId = data.orderId || "CMD-NOUA";
         currentOrder.customerName = data.customerName || "Client Necunoscut";
@@ -349,7 +305,7 @@
       }
     });
 
-    function resizeImageToBase64(file, maxWidth = 800) {
+    function resizeImageToBase64(file, maxWidth = 850) {
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
@@ -359,7 +315,7 @@
           canvas.height = img.height * scale;
           const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL("image/jpeg", 0.55));
+          resolve(canvas.toDataURL("image/jpeg", 0.6));
         };
         img.src = URL.createObjectURL(file);
       });
@@ -386,7 +342,7 @@
     }
 
     // =========================================================================
-    // 3. LOGICĂ CHECKLIST & SCANARE EAN
+    // 3. CHECKLIST & SCANARE EAN
     // =========================================================================
     document.getElementById("btn-add-item").addEventListener("click", () => {
       const input = document.getElementById("input-add-item");
@@ -493,7 +449,7 @@
     }
 
     // =========================================================================
-    // 4. DOVADĂ POZĂ COLET & FINALIZARE COMANDĂ
+    // 4. DOVADĂ POZĂ COLET & SALVARE
     // =========================================================================
     const photoInput = document.getElementById("camera-photo-input");
     const photoBtn = document.getElementById("btn-capture-photo");
@@ -566,7 +522,6 @@
       }
     });
 
-    // Pornire aplicație
     updateAuthState();
   </script>
 </body>
