@@ -18,20 +18,22 @@
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen pb-16 flex flex-col items-center font-sans antialiased">
 
-  <!-- Header Carhub Branding (Rosu & Alb cu Logo Oficial) -->
+  <!-- Header Carhub Branding (Rosu & Alb cu Logo Vectorial) -->
   <header class="w-full bg-red-600 text-white px-4 py-2.5 shadow-md flex justify-between items-center sticky top-0 z-50 border-b border-red-700">
     <div class="flex items-center gap-3">
-     <!-- Logo Carhub Vectorial Garantat Fara Erori -->
-      <div class="flex items-center">
+      <!-- Logo Carhub Vectorial Inline Garantat -->
+      <a href="https://www.carhub.ro" target="_blank" class="flex items-center">
         <svg class="h-9 w-9 rounded-lg shadow-sm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <!-- Fundal Rosu Carhub -->
           <rect width="100" height="100" rx="16" fill="#DC2626"/>
-          <!-- Text CAR -->
           <text x="50" y="44" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="900" text-anchor="middle" letter-spacing="3">CAR</text>
-          <!-- Text HUB -->
           <text x="50" y="78" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="400" text-anchor="middle" letter-spacing="3">HUB</text>
         </svg>
+      </a>
+      <div class="border-l border-red-400/80 pl-3">
+        <h1 class="font-bold text-sm tracking-tight leading-none">Depozit Scanner AI</h1>
+        <p id="operator-badge" class="text-[11px] text-red-100 mt-0.5">Neautentificat</p>
       </div>
+    </div>
     
     <div class="flex items-center gap-2">
       <a id="btn-admin-dashboard" href="https://docs.google.com/spreadsheets" target="_blank" class="hidden text-xs bg-white hover:bg-slate-100 text-red-600 font-bold px-3 py-1.5 rounded-lg shadow-sm">📊 Dashboard</a>
