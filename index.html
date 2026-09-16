@@ -18,14 +18,17 @@
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen pb-16 flex flex-col items-center font-sans antialiased">
 
-  <!-- Header Carhub Branding (Rosu & Alb) -->
-  <header class="w-full bg-red-600 text-white px-4 py-3 shadow-md flex justify-between items-center sticky top-0 z-50 border-b border-red-700">
+  <!-- Header Carhub Branding (Rosu & Alb cu Logo Oficial) -->
+  <header class="w-full bg-red-600 text-white px-4 py-2.5 shadow-md flex justify-between items-center sticky top-0 z-50 border-b border-red-700">
     <div class="flex items-center gap-3">
-      <!-- Logo Carhub SVG Vectorial -->
-      <a href="https://www.carhub.ro" target="_blank" class="flex items-center gap-2">
-        <span class="bg-white text-red-600 font-black text-xs px-2.5 py-1 rounded-md tracking-wider shadow-sm uppercase">CARHUB</span>
+      <!-- Logo Carhub Oficial -->
+      <a href="https://www.carhub.ro" target="_blank" class="flex items-center">
+        <img src="https://www.carhub.ro/image/catalog/logo-carhub.png" 
+             onerror="this.onerror=null; this.src='https://carhub.ro/image/catalog/logo.png';" 
+             alt="Carhub Logo" 
+             class="h-9 w-auto object-contain rounded-md bg-white/10 p-0.5 shadow-sm border border-white/20">
       </a>
-      <div class="border-l border-red-400 pl-3">
+      <div class="border-l border-red-400/80 pl-3">
         <h1 class="font-bold text-sm tracking-tight leading-none">Depozit Scanner AI</h1>
         <p id="operator-badge" class="text-[11px] text-red-100 mt-0.5">Neautentificat</p>
       </div>
