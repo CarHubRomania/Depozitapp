@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Depozit - Picking & Packing cu Gemini AI</title>
+  <meta name="theme-color" content="#0f172a">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    #reader video {
+      width: 100% !important;
+      height: auto !important;
+      border-radius: 0.5rem;
+      object-fit: cover;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-16 flex flex-col items-center">
+
+  <header class="w-full bg-slate-900 text-white p-4 shadow-md flex justify-between items-center sticky top-0 z-50">
+    <div>
+      <h1 class="font-bold text-lg leading-tight">Depozit Scanner AI</h1>
+      <p id="operator-badge" class="text-xs text-slate-400">Neautentificat</p>
+    </div>
+    <button id="btn-switch-user" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded border border-slate-700">Schimbă Gestionar</button>
+  </header>
+
+  <main class="w-full max-w-md p-4 space-y-4">
+
+    <!-- Modal Scanare Barcode Produs -->
+    <div id="scanner-modal" class="hidden bg-slate-900 text-white rounded-xl p-3 shadow-2xl border border-slate-700">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-xs font-bold text-blue-400 uppercase tracking-wide">Scanează EAN Produs</span>
+        <button id="btn-close-scanner" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-bold">Închide ✕</button>
+      </div>
+      <div id="reader" style="width: 100%; min-height: 240px;" class="bg-black rounded-lg overflow-hidden"></div>
+      <p class="text-center text-xs text-slate-400 mt-2">Îndreaptă camera spre codul de bare de pe produs</p>
+    </div>
+
+    <!-- Pas 0: Identificare Gestionar -->
+    <div id="step-auth" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+      <h2 class="font-bold text-base text-slate-900">Cine pregătește comanda?</h2>
+      <input type="text" id="input-operator" placeholder="Ex: Robert" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium">
+      <button id="btn-save-operator" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg text-sm shadow">Începe Lucrul</button>
+    </div>
+
+    <!-- Pas 1: Factură -->
+    <div id="step-invoice" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+      <div class="flex items-center space-x-2">
+        <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center">1</span>
+        <h2 class="font-bold text-base text-slate-900">Fotografiază Factura</h2>
+      </div>
+      <p class="text-xs text-slate-500">Gemini AI va citi automat comanda și va extrage tabelul cu produse.</p>
+      
+      <input type="file" id="invoice-camera-input" accept="image/*" capture="environment" class="hidden">
+      
+      <button id="btn-snap-invoice" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-lg font-bold text-sm flex justify-center items-center gap-2 shadow">
+        📄 Fotografiază Factura
+      </button>
+
+      <div id="ai-loader" class="hidden p-4 bg-blue-50 rounded-lg text-center space-y-2">
+        <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+        <p class="text-xs text-blue-700 font-semibold">Gemini AI procesează factura...</p>
+      </div>
+
+      <div class="relative flex py-1 items-center">
+        <div class="flex-grow border-t border-slate-200"></div>
+        <span class="flex-shrink mx-2 text-xs text-slate-400">sau introdu manual nr. comandă</span>
+        <div class="flex-grow border-t border-slate-200"></div>
+      </div>
+
+      <div class="flex gap-2">
+        <input type="text" id="manual-invoice-id" placeholder="Ex: 1000102194" class="flex-1 p-2.5 border rounded-lg text-sm">
+        <button id="btn-manual-invoice" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-4 py-2.5 rounded-lg text-sm font-medium">Deschide</button>
+      </div>
+    </div>
+
+    <!-- Pas 2: Checklist & Picking -->
+    <div id="step-picking" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
+        <div>
+          <span class="text-xs text-slate-400 font-semibold uppercase">Comandă activă</span>
+          <p id="display-order-id" class="text-base font-bold text-slate-900"></p>
+        </div>
+        <button id="btn-scan-product" class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1 shadow">
+          📷 Scanează EAN
+        </button>
+      </div>
+
+      <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex gap-2">
+        <input type="text" id="input-add-item" placeholder="Adaugă articol..." class="flex-1 text-xs p-2 border rounded-lg outline-none">
+        <button id="btn-add-item" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">+ Adaugă</button>
+      </div>
+
+      <div class="space-y-1">
+        <div class="flex justify-between text-xs text-slate-400 px-2 font-medium">
+          <span>Apasă pe rând pentru bifare manuală:</span>
+          <span id="progress-indicator">0 / 0</span>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100" id="items-list"></div>
+      </div>
+
+      <!-- Pas 3: Poză Colet & Finalizare -->
+      <div id="step-photo-complete" class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
+        <h3 class="text-xs font-bold uppercase text-slate-500">Fotografie Dovadă Colet</h3>
+        <p class="text-xs text-slate-400">Fă poza pachetului pregătit înainte de expediere.</p>
+        
+        <input type="file" id="camera-photo-input" accept="image/*" capture="environment" class="hidden">
+        
+        <button id="btn-capture-photo" class="w-full border-2 border-dashed border-slate-300 hover:border-blue-500 text-slate-600 py-3 rounded-lg text-sm flex items-center justify-center gap-2">
+          📸 Fă poza coletului
+        </button>
+        <img id="photo-preview" class="hidden w-full h-44 object-cover rounded-lg border border-slate-200 mt-2">
+
+        <button id="btn-finish-order" disabled class="w-full bg-slate-300 text-slate-500 cursor-not-allowed font-bold py-3.5 rounded-lg text-sm shadow transition-all">
+          Bifează toate articolele
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // PUNE AICI LINKUL TAU WEB APP (/exec) OBTINUT LA PASUL 3:
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykjhFxWYRslmgE1mydMc3w1WteIFier3njh5pae_DuvSvg45znZK0skE-mxcNDYqCd/exec";
+
+    let currentOperator = localStorage.getItem("operator_name") || "";
+    let html5QrCode = null;
+    let orderStartTime = null;
+    let packagePhotoBase64 = null;
+
+    let currentOrder = { orderId: "", items: [] };
+
+    const authStep = document.getElementById("step-auth");
+    const invoiceStep = document.getElementById("step-invoice");
+    const pickingStep = document.getElementById("step-picking");
+    const operatorBadge = document.getElementById("operator-badge");
+    const scannerModal = document.getElementById("scanner-modal");
+
+    function updateOperatorState() {
+      if (currentOperator) {
+        operatorBadge.innerText = `Gestionar: ${currentOperator}`;
+        authStep.classList.add("hidden");
+        invoiceStep.classList.remove("hidden");
+      } else {
+        operatorBadge.innerText = "Neautentificat";
+        authStep.classList.remove("hidden");
+        invoiceStep.classList.add("hidden");
+        pickingStep.classList.add("hidden");
+      }
+    }
+
+    document.getElementById("btn-save-operator").addEventListener("click", () => {
+      const name = document.getElementById("input-operator").value.trim();
+      if (!name) return alert("Introdu numele!");
+      currentOperator = name;
+      localStorage.setItem("operator_name", name);
+      updateOperatorState();
+    });
+
+    document.getElementById("btn-switch-user").addEventListener("click", () => {
+      localStorage.removeItem("operator_name");
+      currentOperator = "";
+      updateOperatorState();
+    });
+
+    const invoiceCameraInput = document.getElementById("invoice-camera-input");
+    const aiLoader = document.getElementById("ai-loader");
+
+    document.getElementById("btn-snap-invoice").addEventListener("click", () => invoiceCameraInput.click());
+
+    invoiceCameraInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      aiLoader.classList.remove("hidden");
+      const base64Img = await resizeImageToBase64(file, 1600);
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "parse_invoice",
+            image: base64Img
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success" && result.data) {
+          orderStartTime = new Date().toISOString();
+          currentOrder.orderId = result.data.orderId || "CMD-NOUA";
+          currentOrder.items = (result.data.items || []).map((it, idx) => ({
+            id: idx + 1,
+            name: it.name,
+            qty: it.qty || 1,
+            ean: "",
+            checked: false
+          }));
+
+          aiLoader.classList.add("hidden");
+          initChecklistUI();
+        } else {
+          throw new Error(result.message || "Eroare la parsare");
+        }
+      } catch (err) {
+        aiLoader.classList.add("hidden");
+        alert("Eroare la procesarea facturii: " + err.message);
+      }
+    });
+
+    function resizeImageToBase64(file, maxWidth = 900) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const scale = Math.min(maxWidth / img.width, 1);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // Calitate 0.65 JPEG = ultra-rapid pe mobil, claritate maxima pentru AI
+          resolve(canvas.toDataURL("image/jpeg", 0.65));
+        };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    document.getElementById("btn-manual-invoice").addEventListener("click", () => {
+      const val = document.getElementById("manual-invoice-id").value.trim() || "1000102194";
+      orderStartTime = new Date().toISOString();
+      currentOrder.orderId = val;
+      currentOrder.items = [
+        { id: 1, name: "ALK5 - EWOCAR ALK PREWASH 5L, SPUMA PRESPALARE ALCALINA", qty: 1, ean: "", checked: false }
+      ];
+      initChecklistUI();
+    });
+
+    function initChecklistUI() {
+      document.getElementById("display-order-id").innerText = currentOrder.orderId;
+      invoiceStep.classList.add("hidden");
+      pickingStep.classList.remove("hidden");
+      renderChecklist();
+    }
+
+    document.getElementById("btn-add-item").addEventListener("click", () => {
+      const input = document.getElementById("input-add-item");
+      const name = input.value.trim();
+      if (!name) return;
+      currentOrder.items.push({ id: Date.now(), name: name, qty: 1, ean: "", checked: false });
+      input.value = "";
+      renderChecklist();
+    });
+
+    function renderChecklist() {
+      const container = document.getElementById("items-list");
+      container.innerHTML = "";
+      let checkedCount = 0;
+
+      currentOrder.items.forEach((item) => {
+        if (item.checked) checkedCount++;
+
+        const row = document.createElement("div");
+        row.className = `p-3.5 flex justify-between items-center cursor-pointer select-none transition-colors ${
+          item.checked ? "bg-emerald-50 text-emerald-900 border-l-4 border-emerald-500" : "bg-white hover:bg-slate-50"
+        }`;
+
+        row.innerHTML = `
+          <div class="flex-1 pr-2">
+            <p class="font-medium text-sm leading-snug ${item.checked ? 'line-through text-slate-500' : 'text-slate-900'}">${item.name}</p>
+            <p class="text-xs text-slate-400 mt-0.5">Cantitate: <strong>${item.qty} buc</strong> ${item.ean ? `| EAN: ${item.ean}` : ''}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs px-2.5 py-1 rounded-full font-bold ${item.checked ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-200 text-slate-600'}">
+              ${item.checked ? '✓ Bifat' : 'Nebifat'}
+            </span>
+            <button onclick="event.stopPropagation(); deleteItem(${item.id})" class="text-slate-400 hover:text-red-600 text-sm px-1.5">✕</button>
+          </div>
+        `;
+
+        row.addEventListener("click", () => {
+          item.checked = !item.checked;
+          if (navigator.vibrate) navigator.vibrate(40);
+          renderChecklist();
+        });
+
+        container.appendChild(row);
+      });
+
+      document.getElementById("progress-indicator").innerText = `${checkedCount} / ${currentOrder.items.length}`;
+      checkFinishEligibility();
+    }
+
+    window.deleteItem = function(id) {
+      currentOrder.items = currentOrder.items.filter(i => i.id !== id);
+      renderChecklist();
+    };
+
+    async function startScanner() {
+      scannerModal.classList.remove("hidden");
+      if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+
+      const qrConfig = {
+        fps: 10,
+        qrbox: (w, h) => ({ width: Math.floor(Math.min(w, h) * 0.85), height: Math.floor(Math.min(w, h) * 0.5) })
+      };
+
+      try {
+        await html5QrCode.start({ facingMode: "environment" }, qrConfig, onProductBarcodeScanned, () => {});
+      } catch (err) {
+        alert("Eroare cameră: " + err);
+        stopScanner();
+      }
+    }
+
+    async function stopScanner() {
+      if (html5QrCode && html5QrCode.isScanning) await html5QrCode.stop();
+      scannerModal.classList.add("hidden");
+    }
+
+    document.getElementById("btn-close-scanner").addEventListener("click", stopScanner);
+    document.getElementById("btn-scan-product").addEventListener("click", startScanner);
+
+    function onProductBarcodeScanned(barcode) {
+      let targetItem = currentOrder.items.find(i => !i.checked);
+      if (targetItem) {
+        targetItem.ean = barcode;
+        targetItem.checked = true;
+        if (navigator.vibrate) navigator.vibrate(60);
+        renderChecklist();
+        stopScanner();
+      } else {
+        alert("Toate produsele sunt deja bifate!");
+        stopScanner();
+      }
+    }
+
+    const photoInput = document.getElementById("camera-photo-input");
+    const photoBtn = document.getElementById("btn-capture-photo");
+    const photoPreview = document.getElementById("photo-preview");
+
+    photoBtn.addEventListener("click", () => photoInput.click());
+
+    photoInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        packagePhotoBase64 = event.target.result;
+        photoPreview.src = packagePhotoBase64;
+        photoPreview.classList.remove("hidden");
+        photoBtn.innerText = "🔄 Înlocuiește poza";
+        checkFinishEligibility();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function checkFinishEligibility() {
+      const allDone = currentOrder.items.length > 0 && currentOrder.items.every(i => i.checked);
+      const finishBtn = document.getElementById("btn-finish-order");
+
+      if (allDone && packagePhotoBase64) {
+        finishBtn.disabled = false;
+        finishBtn.className = "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-lg text-sm shadow cursor-pointer transition-all";
+        finishBtn.innerText = "✓ Finalizează & Trimite în Tabel";
+      } else if (allDone && !packagePhotoBase64) {
+        finishBtn.disabled = true;
+        finishBtn.innerText = "⚠️ Adaugă poza coletului";
+      } else {
+        finishBtn.disabled = true;
+        finishBtn.innerText = "Bifează toate articolele";
+      }
+    }
+
+    document.getElementById("btn-finish-order").addEventListener("click", async () => {
+      const finishBtn = document.getElementById("btn-finish-order");
+      finishBtn.disabled = true;
+      finishBtn.innerText = "Se trimite în Google Sheet...";
+
+      const payload = {
+        action: "complete_order",
+        orderId: currentOrder.orderId,
+        operator: currentOperator,
+        startedAt: orderStartTime,
+        completedAt: new Date().toISOString(),
+        items: currentOrder.items,
+        photoBase64: packagePhotoBase64
+      };
+
+      try {
+        await fetch(SCRIPT_URL, {
+          method: "POST",
+          mode: "no-cors",
+          body: JSON.stringify(payload)
+        });
+
+        alert(`Comanda ${payload.orderId} a fost salvată în tabel!`);
+
+        packagePhotoBase64 = null;
+        photoPreview.classList.add("hidden");
+        photoBtn.innerText = "📸 Fă poza coletului";
+        pickingStep.classList.add("hidden");
+        invoiceStep.classList.remove("hidden");
+      } catch (err) {
+        alert("Eroare conexiune: " + err);
+        finishBtn.disabled = false;
+      }
+    });
+
+    updateOperatorState();
+  </script>
+</body>
+</html>
