@@ -18,10 +18,9 @@
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen pb-16 flex flex-col items-center font-sans antialiased">
 
-  <!-- Header Carhub Branding (Rosu & Alb cu Logo Vectorial) -->
+  <!-- Header Carhub Branding -->
   <header class="w-full bg-red-600 text-white px-4 py-2.5 shadow-md flex justify-between items-center sticky top-0 z-50 border-b border-red-700">
     <div class="flex items-center gap-3">
-      <!-- Logo Carhub Vectorial Inline Garantat -->
       <a href="https://www.carhub.ro" target="_blank" class="flex items-center">
         <svg class="h-9 w-9 rounded-lg shadow-sm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
           <rect width="100" height="100" rx="16" fill="#DC2626"/>
@@ -36,8 +35,11 @@
     </div>
     
     <div class="flex items-center gap-2">
+      <button id="btn-toggle-orders" class="hidden text-xs bg-red-700 hover:bg-red-800 text-white font-bold px-2.5 py-1.5 rounded-lg border border-red-500 flex items-center gap-1">
+        📦 Istoric
+      </button>
       <a id="btn-admin-dashboard" href="https://docs.google.com/spreadsheets" target="_blank" class="hidden text-xs bg-white hover:bg-slate-100 text-red-600 font-bold px-3 py-1.5 rounded-lg shadow-sm">📊 Dashboard</a>
-      <button id="btn-switch-user" class="hidden text-xs bg-red-700 hover:bg-red-800 text-white font-medium px-3 py-1.5 rounded-lg border border-red-500">Ieșire</button>
+      <button id="btn-switch-user" class="hidden text-xs bg-red-800 hover:bg-red-900 text-white px-2.5 py-1.5 rounded-lg">Ieșire</button>
     </div>
   </header>
 
@@ -53,7 +55,7 @@
         <button id="btn-close-scanner" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-lg text-xs font-bold">Închide ✕</button>
       </div>
       <div id="reader" style="width: 100%; min-height: 240px;" class="bg-slate-900 rounded-xl overflow-hidden"></div>
-      <p class="text-center text-xs text-slate-500 mt-2">Îndreaptă camera spre codul EAN de pe eticheta produsului</p>
+      <p class="text-center text-xs text-slate-500 mt-2">Îndreaptă camera spre codul EAN de pe produs</p>
     </div>
 
     <!-- Pas 0: Login Securizat Depozit -->
@@ -118,15 +120,25 @@
 
     <!-- Pas 2: Checklist Picking & Scanare EAN -->
     <div id="step-picking" class="hidden space-y-4">
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center">
-        <div>
+      
+      <!-- Bara Superioara cu butonul Inapoi si comanda activa -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-2.5">
+          <button id="btn-cancel-picking" class="text-xs font-bold text-slate-600 hover:text-red-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors">
+            ← Înapoi la facturi
+          </button>
           <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Comandă în lucru</span>
-          <p id="display-order-id" class="text-base font-black text-slate-900 leading-tight"></p>
-          <p id="display-customer" class="text-xs text-red-600 font-semibold mt-0.5"></p>
         </div>
-        <button id="btn-scan-product" class="bg-red-600 hover:bg-red-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all">
-          🔍 Scan EAN
-        </button>
+
+        <div class="flex justify-between items-center">
+          <div>
+            <p id="display-order-id" class="text-base font-black text-slate-900 leading-tight"></p>
+            <p id="display-customer" class="text-xs text-red-600 font-semibold mt-0.5"></p>
+          </div>
+          <button id="btn-scan-product" class="bg-red-600 hover:bg-red-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all">
+            🔍 Scan EAN
+          </button>
+        </div>
       </div>
 
       <div class="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-200 flex gap-2">
@@ -162,6 +174,23 @@
       </div>
     </div>
 
+    <!-- Pas 4: Istoric Comenzi & Notare Modificări Operator -->
+    <div id="step-orders-history" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center">
+        <div>
+          <h2 class="font-bold text-base text-slate-900">Comenzi Recente</h2>
+          <p class="text-xs text-slate-500">Selectează o comandă pentru a nota modificări</p>
+        </div>
+        <button id="btn-back-to-scanner" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-2 rounded-xl">
+          ← Înapoi
+        </button>
+      </div>
+
+      <div id="orders-list-container" class="space-y-2.5">
+        <p class="text-center text-xs text-slate-400 py-4">Se încarcă comenzile din tabel...</p>
+      </div>
+    </div>
+
   </main>
 
   <script>
@@ -178,20 +207,24 @@
     const authStep = document.getElementById("step-auth");
     const invoiceStep = document.getElementById("step-invoice");
     const pickingStep = document.getElementById("step-picking");
+    const historyStep = document.getElementById("step-orders-history");
+
     const operatorBadge = document.getElementById("operator-badge");
     const scannerModal = document.getElementById("scanner-modal");
     const btnDashboard = document.getElementById("btn-admin-dashboard");
     const btnLogout = document.getElementById("btn-switch-user");
+    const btnToggleOrders = document.getElementById("btn-toggle-orders");
+    const btnBackToScanner = document.getElementById("btn-back-to-scanner");
+    const btnCancelPicking = document.getElementById("btn-cancel-picking");
 
-    // =========================================================================
-    // 1. SESIUNE & AUTENTIFICARE
-    // =========================================================================
     function updateAuthState() {
       if (currentUser) {
         operatorBadge.innerHTML = `<span class="font-bold text-white">${currentUser.name}</span> <span class="text-[10px] bg-red-800/80 text-red-100 px-1.5 py-0.5 rounded ml-1 uppercase font-semibold">${currentUser.role}</span>`;
         authStep.classList.add("hidden");
         invoiceStep.classList.remove("hidden");
+        historyStep.classList.add("hidden");
         btnLogout.classList.remove("hidden");
+        btnToggleOrders.classList.remove("hidden");
 
         if (currentUser.role === "admin") {
           btnDashboard.classList.remove("hidden");
@@ -205,8 +238,10 @@
         authStep.classList.remove("hidden");
         invoiceStep.classList.add("hidden");
         pickingStep.classList.add("hidden");
+        historyStep.classList.add("hidden");
         btnDashboard.classList.add("hidden");
         btnLogout.classList.add("hidden");
+        btnToggleOrders.classList.add("hidden");
       }
     }
 
@@ -273,7 +308,7 @@
     }
 
     // =========================================================================
-    // 2. PARSARE FACTURA RAPIDA VIA BACKEND
+    // 2. PARSARE FACTURA
     // =========================================================================
     const invoiceCameraInput = document.getElementById("invoice-camera-input");
     const aiLoader = document.getElementById("ai-loader");
@@ -290,10 +325,7 @@
       try {
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
-          body: JSON.stringify({
-            action: "parse_invoice",
-            image: base64DataUrl
-          })
+          body: JSON.stringify({ action: "parse_invoice", image: base64DataUrl })
         });
 
         const resJson = await response.json();
@@ -347,9 +379,7 @@
       currentOrder.orderId = val;
       currentOrder.customerName = "Comanda Manuala";
       currentOrder.customerType = "B2C";
-      currentOrder.items = [
-        { id: 1, name: "Produs test picking", qty: 1, ean: "", checked: false }
-      ];
+      currentOrder.items = [{ id: 1, name: "Produs test picking", qty: 1, ean: "", checked: false }];
       initChecklistUI();
     });
 
@@ -357,12 +387,25 @@
       document.getElementById("display-order-id").innerText = currentOrder.orderId;
       document.getElementById("display-customer").innerText = `Client: ${currentOrder.customerName} (${currentOrder.customerType})`;
       invoiceStep.classList.add("hidden");
+      historyStep.classList.add("hidden");
       pickingStep.classList.remove("hidden");
       renderChecklist();
     }
 
+    // Buton Inapoi din ecranul de picking
+    btnCancelPicking.addEventListener("click", () => {
+      if (confirm("Sigur vrei să te întorci? Progresul acestei comenzi va fi anulat.")) {
+        currentOrder = { orderId: "", customerName: "", customerType: "B2C", items: [] };
+        packagePhotoBase64 = null;
+        photoPreview.classList.add("hidden");
+        photoBtn.innerText = "📸 Fă fotografia coletului";
+        pickingStep.classList.add("hidden");
+        invoiceStep.classList.remove("hidden");
+      }
+    });
+
     // =========================================================================
-    // 3. CHECKLIST & SCANARE EAN
+    // 3. CHECKLIST PICKING & SCANARE
     // =========================================================================
     document.getElementById("btn-add-item").addEventListener("click", () => {
       const input = document.getElementById("input-add-item");
@@ -444,17 +487,13 @@
 
     function onProductBarcodeScanned(barcode) {
       let matchedName = "";
-      if (productsDB[barcode]) {
-        matchedName = productsDB[barcode].name.toLowerCase();
-      }
+      if (productsDB[barcode]) matchedName = productsDB[barcode].name.toLowerCase();
 
       let targetItem = null;
       if (matchedName) {
         targetItem = currentOrder.items.find(i => !i.checked && (i.name.toLowerCase().includes(matchedName) || matchedName.includes(i.name.toLowerCase())));
       }
-      if (!targetItem) {
-        targetItem = currentOrder.items.find(i => !i.checked);
-      }
+      if (!targetItem) targetItem = currentOrder.items.find(i => !i.checked);
 
       if (targetItem) {
         targetItem.ean = barcode;
@@ -469,7 +508,7 @@
     }
 
     // =========================================================================
-    // 4. DOVADĂ POZĂ COLET & SALVARE
+    // 4. DOVADA FOTO & SALVARE
     // =========================================================================
     const photoInput = document.getElementById("camera-photo-input");
     const photoBtn = document.getElementById("btn-capture-photo");
@@ -543,6 +582,91 @@
         finishBtn.disabled = false;
       }
     });
+
+    // =========================================================================
+    // 5. ISTORIC COMENZI & NOTARE MODIFICARI OPERATOR
+    // =========================================================================
+    btnToggleOrders.addEventListener("click", () => {
+      invoiceStep.classList.add("hidden");
+      pickingStep.classList.add("hidden");
+      historyStep.classList.remove("hidden");
+      loadOrdersHistory();
+    });
+
+    btnBackToScanner.addEventListener("click", () => {
+      historyStep.classList.add("hidden");
+      invoiceStep.classList.remove("hidden");
+    });
+
+    async function loadOrdersHistory() {
+      const container = document.getElementById("orders-list-container");
+      container.innerHTML = `<div class="p-4 text-center text-xs text-slate-500 font-medium">Se încarcă istoricul comenzilor...</div>`;
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "get_recent_orders" })
+        });
+        const data = await res.json();
+
+        if (data.status === "success" && data.orders && data.orders.length > 0) {
+          container.innerHTML = "";
+          data.orders.forEach(ord => {
+            const card = document.createElement("div");
+            card.className = "bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2.5";
+            card.innerHTML = `
+              <div class="flex justify-between items-start">
+                <div>
+                  <span class="text-[11px] font-bold text-red-600 tracking-wide">${ord.orderId}</span>
+                  <h4 class="font-bold text-sm text-slate-900 leading-tight">${ord.customer}</h4>
+                  <p class="text-[11px] text-slate-400 mt-0.5">Efectuată de: <strong class="text-slate-700">${ord.operator}</strong> (${ord.date})</p>
+                </div>
+                <span class="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-1 rounded">${ord.itemsCount} art</span>
+              </div>
+
+              ${ord.notes ? `<div class="p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 font-medium"><strong>Modificări:</strong> ${ord.notes}</div>` : ''}
+
+              <button onclick="promptAddNote(${ord.row}, '${ord.orderId}')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                ✏️ Adaugă produs / mențiune la comandă
+              </button>
+            `;
+            container.appendChild(card);
+          });
+        } else {
+          container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">Nu există comenzi recente în tabel.</div>`;
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="p-4 text-center text-xs text-red-600">Eroare la încărcare: ${err.message}</div>`;
+      }
+    }
+
+    window.promptAddNote = async function(rowNumber, orderId) {
+      const editorName = currentUser ? currentUser.name : "Operator";
+      const note = prompt(`Modificare pentru comanda ${orderId}\n(Ex: "Adăugat 1x Ceară Lichidă" sau "Schimbat lavetă"):`);
+
+      if (!note || !note.trim()) return;
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "append_order_note",
+            row: rowNumber,
+            editor: editorName,
+            noteText: note.trim()
+          })
+        });
+        const resJson = await res.json();
+        if (resJson.status === "success") {
+          alert(`Mențiunea a fost înregistrată în tabel pentru ${orderId}!`);
+          loadOrdersHistory();
+        } else {
+          alert("Eroare la salvare: " + resJson.message);
+        }
+      } catch (e) {
+        alert("Eroare de conexiune la salvarea mențiunii!");
+      }
+    };
 
     updateAuthState();
   </script>
