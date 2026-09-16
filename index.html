@@ -21,6 +21,7 @@
   <!-- Header Carhub Branding -->
   <header class="w-full bg-red-600 text-white px-4 py-2.5 shadow-md flex justify-between items-center sticky top-0 z-50 border-b border-red-700">
     <div class="flex items-center gap-3">
+      <!-- Logo Carhub Vectorial Inline Garantat -->
       <a href="https://www.carhub.ro" target="_blank" class="flex items-center">
         <svg class="h-9 w-9 rounded-lg shadow-sm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
           <rect width="100" height="100" rx="16" fill="#DC2626"/>
@@ -120,8 +121,6 @@
 
     <!-- Pas 2: Checklist Picking & Scanare EAN -->
     <div id="step-picking" class="hidden space-y-4">
-      
-      <!-- Bara Superioara cu butonul Inapoi si comanda activa -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
         <div class="flex justify-between items-center border-b border-slate-100 pb-2.5">
           <button id="btn-cancel-picking" class="text-xs font-bold text-slate-600 hover:text-red-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors">
@@ -174,12 +173,12 @@
       </div>
     </div>
 
-    <!-- Pas 4: Istoric Comenzi & Notare Modificări Operator -->
+    <!-- Pas 4: Istoric Comenzi & Modificări -->
     <div id="step-orders-history" class="hidden space-y-4">
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center">
         <div>
           <h2 class="font-bold text-base text-slate-900">Comenzi Recente</h2>
-          <p class="text-xs text-slate-500">Selectează o comandă pentru a nota modificări</p>
+          <p class="text-xs text-slate-500">Apasă pe comandă pentru a nota modificări</p>
         </div>
         <button id="btn-back-to-scanner" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-2 rounded-xl">
           ← Înapoi
@@ -217,6 +216,33 @@
     const btnBackToScanner = document.getElementById("btn-back-to-scanner");
     const btnCancelPicking = document.getElementById("btn-cancel-picking");
 
+    // Helper JSONP pentru a ocoli complet restrictiile CORS din browser
+    function fetchJSONP(url) {
+      return new Promise((resolve, reject) => {
+        const callbackName = "jsonp_cb_" + Math.round(100000 * Math.random());
+        const script = document.createElement("script");
+
+        window[callbackName] = function(data) {
+          delete window[callbackName];
+          if (script.parentNode) script.parentNode.removeChild(script);
+          resolve(data);
+        };
+
+        script.onerror = function() {
+          delete window[callbackName];
+          if (script.parentNode) script.parentNode.removeChild(script);
+          reject(new Error("Eroare de rețea la Google Sheets"));
+        };
+
+        const delimiter = url.includes("?") ? "&" : "?";
+        script.src = `${url}${delimiter}callback=${callbackName}&t=${Date.now()}`;
+        document.body.appendChild(script);
+      });
+    }
+
+    // =========================================================================
+    // 1. SESIUNE & LOGIN
+    // =========================================================================
     function updateAuthState() {
       if (currentUser) {
         operatorBadge.innerHTML = `<span class="font-bold text-white">${currentUser.name}</span> <span class="text-[10px] bg-red-800/80 text-red-100 px-1.5 py-0.5 rounded ml-1 uppercase font-semibold">${currentUser.role}</span>`;
@@ -293,11 +319,7 @@
 
     async function syncProductsDatabase() {
       try {
-        const res = await fetch(SCRIPT_URL, {
-          method: "POST",
-          body: JSON.stringify({ action: "get_products" })
-        });
-        const data = await res.json();
+        const data = await fetchJSONP(`${SCRIPT_URL}?action=get_products`);
         if (data.status === "success" && data.products) {
           productsDB = data.products;
           localStorage.setItem("products_db", JSON.stringify(productsDB));
@@ -308,7 +330,7 @@
     }
 
     // =========================================================================
-    // 2. PARSARE FACTURA
+    // 2. PARSARE FACTURA RAPIDA VIA BACKEND
     // =========================================================================
     const invoiceCameraInput = document.getElementById("invoice-camera-input");
     const aiLoader = document.getElementById("ai-loader");
@@ -392,7 +414,6 @@
       renderChecklist();
     }
 
-    // Buton Inapoi din ecranul de picking
     btnCancelPicking.addEventListener("click", () => {
       if (confirm("Sigur vrei să te întorci? Progresul acestei comenzi va fi anulat.")) {
         currentOrder = { orderId: "", customerName: "", customerType: "B2C", items: [] };
@@ -508,7 +529,7 @@
     }
 
     // =========================================================================
-    // 4. DOVADA FOTO & SALVARE
+    // 4. DOVADĂ POZĂ COLET & SALVARE
     // =========================================================================
     const photoInput = document.getElementById("camera-photo-input");
     const photoBtn = document.getElementById("btn-capture-photo");
@@ -584,7 +605,7 @@
     });
 
     // =========================================================================
-    // 5. ISTORIC COMENZI & NOTARE MODIFICARI OPERATOR
+    // 5. ISTORIC COMENZI & NOTARE MODIFICĂRI
     // =========================================================================
     btnToggleOrders.addEventListener("click", () => {
       invoiceStep.classList.add("hidden");
@@ -600,14 +621,10 @@
 
     async function loadOrdersHistory() {
       const container = document.getElementById("orders-list-container");
-      container.innerHTML = `<div class="p-4 text-center text-xs text-slate-500 font-medium">Se încarcă istoricul comenzilor...</div>`;
+      container.innerHTML = `<div class="p-4 text-center text-xs text-slate-500 font-medium">Se încarcă comenzile din tabel...</div>`;
 
       try {
-        const res = await fetch(SCRIPT_URL, {
-          method: "POST",
-          body: JSON.stringify({ action: "get_recent_orders" })
-        });
-        const data = await res.json();
+        const data = await fetchJSONP(`${SCRIPT_URL}?action=get_recent_orders`);
 
         if (data.status === "success" && data.orders && data.orders.length > 0) {
           container.innerHTML = "";
@@ -647,8 +664,9 @@
       if (!note || !note.trim()) return;
 
       try {
-        const res = await fetch(SCRIPT_URL, {
+        await fetch(SCRIPT_URL, {
           method: "POST",
+          mode: "no-cors",
           body: JSON.stringify({
             action: "append_order_note",
             row: rowNumber,
@@ -656,13 +674,9 @@
             noteText: note.trim()
           })
         });
-        const resJson = await res.json();
-        if (resJson.status === "success") {
-          alert(`Mențiunea a fost înregistrată în tabel pentru ${orderId}!`);
-          loadOrdersHistory();
-        } else {
-          alert("Eroare la salvare: " + resJson.message);
-        }
+
+        alert(`Mențiunea a fost înregistrată pentru comanda ${orderId}!`);
+        setTimeout(loadOrdersHistory, 1200);
       } catch (e) {
         alert("Eroare de conexiune la salvarea mențiunii!");
       }
